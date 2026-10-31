@@ -302,7 +302,10 @@
       setPill($("gpsStatus"), "ok", "Location found (±" + Math.round(bestFix.acc) + " m) <span class=\"hi\">लोकेशन मिल गई</span>");
     }, function (err) {
       if (err.code === err.PERMISSION_DENIED) {
-        setPill($("gpsStatus"), "warn", "Location is blocked. Please allow location for this site, and turn on phone Location. <span class=\"hi\">लोकेशन चालू करें</span>");
+        // Stop watching so the next camera open asks again once it's allowed.
+        navigator.geolocation.clearWatch(geoWatch);
+        geoWatch = null;
+        setPill($("gpsStatus"), "warn", "Location is blocked. " + locationHelp() + " <span class=\"hi\">लोकेशन चालू करें</span>");
       } else {
         setPill($("gpsStatus"), "warn", "Can't get location yet. Turn on phone Location. <span class=\"hi\">लोकेशन चालू करें</span>");
       }
@@ -311,6 +314,26 @@
 
   function currentFix() {
     return bestFix && Date.now() - bestFix.at < 2 * 60000 ? bestFix : null;
+  }
+
+  function locationHelp() {
+    if (/iPhone|iPad/.test(navigator.userAgent)) {
+      return "On iPhone: Settings → Privacy & Security → Location Services → turn it ON, then set Chrome / Safari Websites to \"While Using\". Then reopen this app.";
+    }
+    return "Turn on phone Location, then in Chrome tap the icon left of the web address → Permissions → Location → Allow. Then reopen this app.";
+  }
+
+  // GPS can take a few seconds to lock on, especially indoors. If the guard
+  // presses the button before that, wait briefly instead of stamping no location.
+  function waitForFix(ms) {
+    return new Promise(function (resolve) {
+      var until = Date.now() + ms;
+      (function poll() {
+        var fix = currentFix();
+        if (fix || geoWatch === null || Date.now() >= until) return resolve(fix);
+        setTimeout(poll, 300);
+      })();
+    });
   }
 
   // ---- Internet time ----
@@ -339,11 +362,19 @@
     canvas.width = Math.round(v.videoWidth * scale);
     canvas.height = Math.round(v.videoHeight * scale);
     canvas.getContext("2d").drawImage(v, 0, 0, canvas.width, canvas.height);
-    var fix = currentFix();
+    if (!currentFix()) $("shoot").innerHTML = "Getting location… <span class=\"hi\">लोकेशन ढूंढ रहे हैं</span>";
 
-    internetNow().then(function (t) { return { time: t, verified: true }; }, function () {
+    // Fetch the time straight away so the stamp is the moment of the shot,
+    // even if we then wait a few seconds for location.
+    var whenP = internetNow().then(function (t) { return { time: t, verified: true }; }, function () {
       return { time: Date.now(), verified: false };
+    });
+    var fix;
+    waitForFix(15000).then(function (f) {
+      fix = f;
+      return whenP;
     }).then(function (when) {
+      $("shoot").innerHTML = "Take photo <span class=\"hi\">फोटो लें</span>";
       stamp(canvas, when, fix);
       canvas.toBlob(function (blob) {
         shotBlob = blob;
