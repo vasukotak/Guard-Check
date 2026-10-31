@@ -41,7 +41,7 @@ unpredictable times, and they can't rely on an alarm.
 
 > **Night check photo — how to use**
 >
-> 1. Open this link in **Chrome**: *(app link)*
+> 1. Open this link in **Chrome**: https://vasukotak.github.io/Guard-Check/
 > 2. Type your name, choose your factory, press **Save**. (Only the first time.)
 > 3. Press **Allow** for camera and location. Keep phone **Location ON** and **mobile data ON**.
 > 4. Chrome menu (⋮) → **Add to Home screen**. Now open it from that icon every time.
@@ -49,7 +49,7 @@ unpredictable times, and they can't rely on an alarm.
 >
 > **रात की चेक फोटो — कैसे भेजें**
 >
-> 1. यह लिंक **Chrome** में खोलें: *(app link)*
+> 1. यह लिंक **Chrome** में खोलें: https://vasukotak.github.io/Guard-Check/
 > 2. अपना नाम लिखें, अपनी फैक्ट्री चुनें, **Save** दबाएं। (सिर्फ पहली बार)
 > 3. कैमरा और लोकेशन के लिए **Allow** दबाएं। फ़ोन की **Location** और **mobile data** चालू रखें।
 > 4. Chrome मेनू (⋮) → **Add to Home screen**। हर बार उसी आइकन से खोलें।
@@ -58,7 +58,7 @@ unpredictable times, and they can't rely on an alarm.
 ## Optional: "at factory" check
 
 If you send the Google Maps location of each factory, the app will also print
-**At Factory 1** on the photo, or in red **2.3 km AWAY FROM FACTORY 1** if
+**At Agarbatti Factory** on the photo, or in red **2.3 km AWAY FROM AGARBATTI FACTORY** if
 it was taken somewhere else. To set it, fill in `lat` and `lng` for each
 factory near the top of the script in `index.html`. Factory names can be
 changed in the same place.
