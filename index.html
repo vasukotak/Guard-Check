@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Guard Check</title>
+<meta name="theme-color" content="#7a1f2b">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root {
+    --bg: #f6efe2;
+    --card: #fffdf7;
+    --ink: #2b2118;
+    --muted: #7d6d57;
+    --border: #e1d3b8;
+    --accent: #7a1f2b;
+    --accent-ink: #fff8f0;
+    --ok: #2f6b3a;
+    --ok-bg: #dcead6;
+    --warn: #9a2a14;
+    --warn-bg: #f6dccf;
+    --wa: #1f8f4e;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1b160f;
+      --card: #262019;
+      --ink: #f1e7d6;
+      --muted: #b3a186;
+      --border: #3c3220;
+      --accent: #d97a86;
+      --accent-ink: #1b160f;
+      --ok: #9fd6a9;
+      --ok-bg: #24402a;
+      --warn: #f2a48c;
+      --warn-bg: #4a2418;
+      --wa: #3cc275;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.45;
+  }
+  main { max-width: 520px; margin: 0 auto; padding: 16px 16px 32px; }
+  h1 { font-size: 1.25rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 16px; font-size: 0.95rem; }
+  .hi { display: block; font-size: 0.85em; opacity: 0.85; font-weight: 500; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+  }
+  label { display: block; font-weight: 600; margin: 0 0 6px; }
+  input[type=text] {
+    width: 100%;
+    font: inherit;
+    font-size: 1.1rem;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--ink);
+  }
+  .choices { display: grid; gap: 10px; margin-top: 6px; }
+  .choice {
+    font: inherit;
+    font-size: 1.05rem;
+    padding: 14px;
+    border-radius: 10px;
+    border: 2px solid var(--border);
+    background: var(--bg);
+    color: var(--ink);
+    text-align: left;
+  }
+  .choice[aria-pressed=true] { border-color: var(--accent); font-weight: 700; }
+  .btn {
+    display: block;
+    width: 100%;
+    font: inherit;
+    font-size: 1.15rem;
+    font-weight: 700;
+    padding: 16px;
+    border: 0;
+    border-radius: 12px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    margin-top: 14px;
+    cursor: pointer;
+  }
+  .btn:disabled { opacity: 0.5; }
+  .btn.wa { background: var(--wa); color: #fff; }
+  .btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--border); font-weight: 600; }
+  .viewer {
+    position: relative;
+    background: #000;
+    border-radius: 14px;
+    overflow: hidden;
+    aspect-ratio: 3 / 4;
+  }
+  .viewer video, .viewer img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .viewer img { object-fit: contain; }
+  .status { display: grid; gap: 6px; margin-top: 12px; font-size: 0.95rem; }
+  .pill { padding: 8px 12px; border-radius: 10px; background: var(--card); border: 1px solid var(--border); }
+  .pill.ok { background: var(--ok-bg); color: var(--ok); border-color: transparent; }
+  .pill.warn { background: var(--warn-bg); color: var(--warn); border-color: transparent; }
+  .who { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+  .who strong { font-size: 1.05rem; }
+  .link { background: none; border: 0; color: var(--accent); font: inherit; text-decoration: underline; padding: 0; cursor: pointer; }
+  .msg { margin-top: 12px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Guard Check</h1>
+  <p class="sub">Night patrol photo with time and location</p>
+
+  <!-- First-time setup: who is this guard and which factory -->
+  <section id="setup" class="card" hidden>
+    <label for="nameInput">Your name <span class="hi">आपका नाम</span></label>
+    <input id="nameInput" type="text" autocomplete="name" maxlength="40">
+    <label style="margin-top:16px">Your factory <span class="hi">आपकी फैक्ट्री</span></label>
+    <div id="factoryChoices" class="choices"></div>
+    <button id="saveSetup" class="btn" disabled>Save <span class="hi">सेव करें</span></button>
+  </section>
+
+  <!-- Camera -->
+  <section id="camera" hidden>
+    <div class="who">
+      <strong id="whoLabel"></strong>
+      <button id="changeWho" class="link">Change</button>
+    </div>
+    <div class="viewer"><video id="video" playsinline muted autoplay></video></div>
+    <div class="status">
+      <div id="camStatus" class="pill">Starting camera… <span class="hi">कैमरा चालू हो रहा है</span></div>
+      <div id="gpsStatus" class="pill">Finding location… <span class="hi">लोकेशन ढूंढ रहे हैं</span></div>
+    </div>
+    <button id="shoot" class="btn" disabled>Take photo <span class="hi">फोटो लें</span></button>
+  </section>
+
+  <!-- Stamped preview -->
+  <section id="preview" hidden>
+    <div class="viewer"><img id="shot" alt="Stamped photo"></div>
+    <div id="timeWarn" class="pill warn msg" hidden>
+      No internet: the time on this photo is from the phone and is marked NOT VERIFIED.
+      <span class="hi">इंटरनेट नहीं है — समय की पुष्टि नहीं हुई</span>
+    </div>
+    <button id="send" class="btn wa">Send to WhatsApp <span class="hi">व्हाट्सएप पर भेजें</span></button>
+    <a id="download" class="btn wa" hidden download>Save photo <span class="hi">फोटो सेव करें</span></a>
+    <p id="downloadHelp" class="sub msg" hidden>This phone can't share straight to WhatsApp. Save the photo, then send it in the group right away.</p>
+    <button id="retake" class="btn ghost">Retake <span class="hi">फिर से लें</span></button>
+  </section>
+
+  <section id="error" class="card" hidden>
+    <p id="errorText" style="margin:0"></p>
+    <button id="retry" class="btn">Try again <span class="hi">फिर से कोशिश करें</span></button>
+  </section>
+</main>
+
+<script>
+(function () {
+  // Factory list. Add lat/lng (from Google Maps: long-press the factory,
+  // copy the numbers) to have each photo say how far it was taken from it.
+  var FACTORIES = [
+    { name: "Factory 1", lat: null, lng: null },
+    { name: "Factory 2", lat: null, lng: null }
+  ];
+  var NEAR_METRES = 300;
+  var TIME_ZONE = "Asia/Kolkata";
+  var STORAGE_KEY = "guardCheck.profile";
+
+  var $ = function (id) { return document.getElementById(id); };
+  var profile = loadProfile();
+  var stream = null;
+  var bestFix = null;
+  var geoWatch = null;
+  var shotBlob = null;
+  var shotCaption = "";
+
+  function loadProfile() {
+    try {
+      var p = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+      if (p && p.name && FACTORIES[p.factory]) return p;
+    } catch (e) {}
+    return null;
+  }
+
+  function saveProfile(p) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); } catch (e) {}
+  }
+
+  function show(id) {
+    ["setup", "camera", "preview", "error"].forEach(function (s) { $(s).hidden = s !== id; });
+  }
+
+  function setPill(el, kind, html) {
+    el.className = "pill" + (kind ? " " + kind : "");
+    el.innerHTML = html;
+  }
+
+  // ---- First-time setup ----
+  var pickedFactory = null;
+
+  function openSetup() {
+    stopCamera();
+    $("nameInput").value = profile ? profile.name : "";
+    pickedFactory = profile ? profile.factory : null;
+    var box = $("factoryChoices");
+    box.innerHTML = "";
+    FACTORIES.forEach(function (f, i) {
+      var b = document.createElement("button");
+      b.className = "choice";
+      b.type = "button";
+      b.textContent = f.name;
+      b.setAttribute("aria-pressed", String(i === pickedFactory));
+      b.addEventListener("click", function () {
+        pickedFactory = i;
+        Array.prototype.forEach.call(box.children, function (c, j) {
+          c.setAttribute("aria-pressed", String(j === i));
+        });
+        updateSaveState();
+      });
+      box.appendChild(b);
+    });
+    updateSaveState();
+    show("setup");
+  }
+
+  function updateSaveState() {
+    $("saveSetup").disabled = !($("nameInput").value.trim() && pickedFactory !== null);
+  }
+
+  $("nameInput").addEventListener("input", updateSaveState);
+  $("saveSetup").addEventListener("click", function () {
+    profile = { name: $("nameInput").value.trim(), factory: pickedFactory };
+    saveProfile(profile);
+    openCamera();
+  });
+  $("changeWho").addEventListener("click", openSetup);
+
+  // ---- Camera (live only, there is deliberately no gallery option) ----
+  function openCamera() {
+    $("whoLabel").textContent = profile.name + " · " + FACTORIES[profile.factory].name;
+    show("camera");
+    $("shoot").disabled = true;
+    startLocation();
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      return fail("This browser can't open the camera. Please open this link in Google Chrome.");
+    }
+    setPill($("camStatus"), "", "Starting camera… <span class=\"hi\">कैमरा चालू हो रहा है</span>");
+    navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1440 } },
+      audio: false
+    }).then(function (s) {
+      stream = s;
+      var v = $("video");
+      v.srcObject = s;
+      return v.play();
+    }).then(function () {
+      setPill($("camStatus"), "ok", "Camera ready <span class=\"hi\">कैमरा तैयार</span>");
+      $("shoot").disabled = false;
+    }).catch(function () {
+      fail("Camera permission is needed. Tap Try again and press Allow. If it still doesn't work, open Chrome settings → Site settings → Camera and allow this site.");
+    });
+  }
+
+  function stopCamera() {
+    if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
+    stream = null;
+  }
+
+  // Release the camera when the app goes to the background, and reopen it
+  // when the guard comes back, so the viewfinder is never a frozen frame.
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      stopCamera();
+    } else if (!$("camera").hidden) {
+      openCamera();
+    }
+  });
+
+  // ---- Location ----
+  function startLocation() {
+    if (geoWatch !== null) return;
+    if (!navigator.geolocation) {
+      setPill($("gpsStatus"), "warn", "This phone can't share location");
+      return;
+    }
+    geoWatch = navigator.geolocation.watchPosition(function (pos) {
+      var fix = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy, at: Date.now() };
+      // Prefer the freshest fix unless the previous one was much more accurate and still recent.
+      if (!bestFix || fix.acc <= bestFix.acc * 1.5 || Date.now() - bestFix.at > 60000) bestFix = fix;
+      setPill($("gpsStatus"), "ok", "Location found (±" + Math.round(bestFix.acc) + " m) <span class=\"hi\">लोकेशन मिल गई</span>");
+    }, function (err) {
+      if (err.code === err.PERMISSION_DENIED) {
+        setPill($("gpsStatus"), "warn", "Location is blocked. Please allow location for this site, and turn on phone Location. <span class=\"hi\">लोकेशन चालू करें</span>");
+      } else {
+        setPill($("gpsStatus"), "warn", "Can't get location yet. Turn on phone Location. <span class=\"hi\">लोकेशन चालू करें</span>");
+      }
+    }, { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
+  }
+
+  function currentFix() {
+    return bestFix && Date.now() - bestFix.at < 2 * 60000 ? bestFix : null;
+  }
+
+  // ---- Internet time ----
+  // The stamp uses the web server's clock, not the phone's, so changing the
+  // phone's time can't fake a photo's time. Falls back to phone time, clearly
+  // marked, only when there's no internet.
+  function internetNow() {
+    var t0 = Date.now();
+    var url = location.href.split("#")[0].split("?")[0] + "?time=" + t0;
+    return fetch(url, { method: "HEAD", cache: "no-store" }).then(function (r) {
+      var t1 = Date.now();
+      var serverDate = Date.parse(r.headers.get("Date") || "");
+      if (isNaN(serverDate)) throw new Error("no date");
+      // The Date header is rounded down to the second; +500 ms is the expected midpoint.
+      return serverDate + 500 + (Date.now() - (t0 + t1) / 2);
+    });
+  }
+
+  // ---- Taking and stamping the photo ----
+  $("shoot").addEventListener("click", function () {
+    var v = $("video");
+    if (!v.videoWidth) return;
+    $("shoot").disabled = true;
+    var scale = Math.min(1, 1600 / Math.max(v.videoWidth, v.videoHeight));
+    var canvas = document.createElement("canvas");
+    canvas.width = Math.round(v.videoWidth * scale);
+    canvas.height = Math.round(v.videoHeight * scale);
+    canvas.getContext("2d").drawImage(v, 0, 0, canvas.width, canvas.height);
+    var fix = currentFix();
+
+    internetNow().then(function (t) { return { time: t, verified: true }; }, function () {
+      return { time: Date.now(), verified: false };
+    }).then(function (when) {
+      stamp(canvas, when, fix);
+      canvas.toBlob(function (blob) {
+        shotBlob = blob;
+        $("shot").src = URL.createObjectURL(blob);
+        $("timeWarn").hidden = when.verified;
+        $("send").hidden = false;
+        $("download").hidden = true;
+        $("downloadHelp").hidden = true;
+        stopCamera();
+        show("preview");
+      }, "image/jpeg", 0.8);
+    });
+  });
+
+  function formatWhen(ms) {
+    var d = new Date(ms);
+    var date = d.toLocaleDateString("en-GB", { timeZone: TIME_ZONE, day: "numeric", month: "short", year: "numeric" });
+    var time = d.toLocaleTimeString("en-US", { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
+    return { date: date, time: time };
+  }
+
+  function distanceMetres(a, b) {
+    var R = 6371000, rad = Math.PI / 180;
+    var dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad;
+    var h = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+
+  function placeNote(fix) {
+    var f = FACTORIES[profile.factory];
+    if (!fix || f.lat === null || f.lng === null) return null;
+    var d = distanceMetres(fix, f);
+    if (d <= NEAR_METRES) return { text: "At " + f.name, ok: true };
+    var away = d >= 1000 ? (d / 1000).toFixed(1) + " km" : Math.round(d) + " m";
+    return { text: away + " AWAY FROM " + f.name.toUpperCase(), ok: false };
+  }
+
+  function stamp(canvas, when, fix) {
+    var ctx = canvas.getContext("2d");
+    var w = canvas.width;
+    var fs = Math.max(16, Math.round(w / 26));
+    var pad = Math.round(fs * 0.6);
+    var f = formatWhen(when.time);
+    var place = placeNote(fix);
+
+    var lines = [
+      { text: f.time + "   " + f.date, size: fs * 1.25, bold: true, color: "#fff" },
+      { text: FACTORIES[profile.factory].name + "  ·  Guard: " + profile.name, size: fs, color: "#fff" },
+      fix
+        ? { text: "Location " + fix.lat.toFixed(5) + ", " + fix.lng.toFixed(5) + "  (±" + Math.round(fix.acc) + " m)", size: fs * 0.85, color: "#fff" }
+        : { text: "LOCATION NOT AVAILABLE", size: fs * 0.85, bold: true, color: "#ffb199" }
+    ];
+    if (place) lines.push({ text: place.text, size: fs * 0.85, bold: !place.ok, color: place.ok ? "#b9f0c4" : "#ffb199" });
+    lines.push(when.verified
+      ? { text: "Internet time · live camera", size: fs * 0.7, color: "#d8d8d8" }
+      : { text: "PHONE TIME - NOT VERIFIED", size: fs * 0.8, bold: true, color: "#ffb199" });
+
+    var bandH = pad;
+    lines.forEach(function (l) { bandH += Math.round(l.size * 1.3); });
+    bandH += pad;
+    ctx.fillStyle = "rgba(0,0,0,0.62)";
+    ctx.fillRect(0, canvas.height - bandH, w, bandH);
+
+    var y = canvas.height - bandH + pad;
+    ctx.textBaseline = "top";
+    lines.forEach(function (l) {
+      ctx.font = (l.bold ? "700 " : "500 ") + Math.round(l.size) + "px " + getComputedStyle(document.body).fontFamily;
+      ctx.fillStyle = l.color;
+      ctx.fillText(l.text, pad, y, w - pad * 2);
+      y += Math.round(l.size * 1.3);
+    });
+
+    shotCaption = FACTORIES[profile.factory].name + " – " + profile.name + "\n" +
+      f.time + ", " + f.date + (when.verified ? "" : " (phone time, not verified)") + "\n" +
+      (fix ? "https://maps.google.com/?q=" + fix.lat.toFixed(6) + "," + fix.lng.toFixed(6) : "Location not available");
+  }
+
+  // ---- Sending ----
+  $("send").addEventListener("click", function () {
+    if (!shotBlob) return;
+    var file = new File([shotBlob], "guard-check-" + Date.now() + ".jpg", { type: "image/jpeg" });
+    var data = { files: [file], text: shotCaption };
+    if (navigator.canShare && navigator.canShare(data)) {
+      navigator.share(data).catch(function () { /* guard closed the share sheet; they can tap Send again */ });
+    } else {
+      // No file sharing (rare on Android Chrome): offer a download instead.
+      var a = $("download");
+      a.href = $("shot").src;
+      a.download = file.name;
+      a.hidden = false;
+      $("downloadHelp").hidden = false;
+      $("send").hidden = true;
+    }
+  });
+
+  $("retake").addEventListener("click", function () {
+    shotBlob = null;
+    openCamera();
+  });
+
+  // ---- Errors ----
+  function fail(text) {
+    stopCamera();
+    $("errorText").textContent = text;
+    show("error");
+  }
+  $("retry").addEventListener("click", function () {
+    if (profile) openCamera(); else openSetup();
+  });
+
+  if (profile) openCamera(); else openSetup();
+})();
+</script>
+</body>
+</html>
